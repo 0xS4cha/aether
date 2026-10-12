@@ -8,8 +8,12 @@ license = { text = "MIT" }
 dependencies = [
     "kagglehub>=1.0.2",
     "numpy>=2.0.0",
+    "pillow>=12.3.0",
     "pyvista>=0.49.0",
+    "pyyaml>=6.0.3",
+    "scipy>=1.15.3",
     "torch>=2.14.0",
+    "torchvision>=0.29.1",
 ]
 
 [project.scripts]
@@ -22,3 +26,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aether"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

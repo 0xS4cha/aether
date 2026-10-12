@@ -1,0 +1,56 @@
+device: "auto"
+
+depth:
+  model_type: "hybrid"
+  invert: false
+  normalize: true
+  astronomical_radial_weight: 0.4
+  astronomical_power: 1.5
+
+geometry:
+  representation: "point_cloud"
+  point_cloud:
+    depth_scale: 50.0
+    subsample_step: 1
+    threshold: 0.05
+    remove_star_outliers: true
+  mesh:
+    depth_scale: 40.0
+    resolution_scale: 0.5
+    smooth_iterations: 15
+    double_sided: true
+  volume:
+    depth_layers: 48
+    thickness_factor: 1.0
+    gaussian_sigma: 1.8
+
+rendering:
+  background_color: "black"
+  colormap: "plasma"
+  show_axes: true
+  point_size: 2.5
+  opacity_curve: "sigmoid"
+  starfield:
+    enabled: true
+    num_stars: 1200
+    spread: 300.0
+
+spectral:
+  enabled: false
+  mode: "natural_rgb"
+  filter_sigma: 1.0
+  oiii_radius: 0.65
+  ha_radius: 1.00
+  sii_radius: 1.25
+
+morphology:
+  enabled: false
+  model_type: "bipolar"
+  inclination_deg: 45.0
+  position_angle_deg: 0.0
+  num_points: 40000
+  grid_size: 64
+
+export:
+  output_dir: "data/outputs"
+  format: "ply"
