@@ -89,34 +89,84 @@ class SpectralReconstructor:
         xx, yy = np.meshgrid(x_coords, y_coords)
 
         shells: dict[str, pv.PolyData] = {}
+        offset = target_w * target_h
+        r_idx = np.arange(target_h - 1)[:, None]
+        c_idx = np.arange(target_w - 1)[None, :]
+        v00 = r_idx * target_w + c_idx
+        v01 = v00 + 1
+        v10 = (r_idx + 1) * target_w + c_idx
+        v11 = v10 + 1
 
         for name, flux_map, depth_map, base_color in species_data:
             res_flux = resize_image(flux_map, (target_w, target_h))
             res_depth = resize_image(depth_map, (target_w, target_h))
 
-            z_front = (res_depth - 0.5) * self.depth_scale
-            points_front = np.column_stack((xx.ravel(), yy.ravel(), z_front.ravel()))
+            thresh = self.threshold
+            taper = np.clip((res_flux - thresh * 0.5) / (thresh * 1.5 + 1e-6), 0.0, 1.0)
+            taper = 0.5 * (1.0 - np.cos(np.pi * taper))
+            shaped_depth = np.maximum(0.0, res_depth * taper)
+
+            z_front = shaped_depth * (self.depth_scale * 0.5)
+            z_back = -z_front
+
+            pts_front = np.column_stack((xx.ravel(), yy.ravel(), z_front.ravel()))
+            pts_back = np.column_stack((xx.ravel(), yy.ravel(), z_back.ravel()))
+            all_pts = np.vstack([pts_front, pts_back])
 
             color_arr = np.array(base_color, dtype=np.float32)[None, :]
             flux_flat = res_flux.ravel()[:, None]
             rgb_front = np.clip(flux_flat * color_arr * 255.0, 0.0, 255.0).astype(np.uint8)
+            all_colors = np.vstack([rgb_front, rgb_front.copy()])
 
-            grid_front = pv.StructuredGrid()
-            grid_front.points = points_front
-            grid_front.dimensions = [target_w, target_h, 1]
-            mesh_front = grid_front.extract_surface(algorithm="dataset_surface")
-            mesh_front.point_data["RGB"] = rgb_front
+            quad_mask = (res_flux[:-1, :-1] > thresh) | (res_flux[1:, :-1] > thresh) | (res_flux[:-1, 1:] > thresh) | (res_flux[1:, 1:] > thresh)
+            if not np.any(quad_mask):
+                quad_mask = np.ones((target_h - 1, target_w - 1), dtype=bool)
 
-            z_back = - (res_depth - 0.5) * self.depth_scale
-            points_back = np.column_stack((xx.ravel(), yy.ravel(), z_back.ravel()))
-            grid_back = pv.StructuredGrid()
-            grid_back.points = points_back
-            grid_back.dimensions = [target_w, target_h, 1]
-            mesh_back = grid_back.extract_surface(algorithm="dataset_surface")
-            mesh_back.point_data["RGB"] = rgb_front.copy()
+            v00_sel = v00[quad_mask]
+            v01_sel = v01[quad_mask]
+            v10_sel = v10[quad_mask]
+            v11_sel = v11[quad_mask]
 
-            combined = (mesh_front + mesh_back).smooth(n_iter=10)
-            shells[name] = combined.compute_normals(point_normals=True, cell_normals=False)
+            f_t1 = np.column_stack([np.full(len(v00_sel), 3), v00_sel, v10_sel, v01_sel])
+            f_t2 = np.column_stack([np.full(len(v00_sel), 3), v01_sel, v10_sel, v11_sel])
+            front_faces = np.vstack([f_t1, f_t2])
+
+            bv00_sel = v00_sel + offset
+            bv01_sel = v01_sel + offset
+            bv10_sel = v10_sel + offset
+            bv11_sel = v11_sel + offset
+
+            b_t1 = np.column_stack([np.full(len(bv00_sel), 3), bv00_sel, bv01_sel, bv10_sel])
+            b_t2 = np.column_stack([np.full(len(bv00_sel), 3), bv01_sel, bv11_sel, bv10_sel])
+            back_faces = np.vstack([b_t1, b_t2])
+
+            top_b = quad_mask & np.pad(~quad_mask[:-1, :], ((1, 0), (0, 0)), constant_values=True)
+            bot_b = quad_mask & np.pad(~quad_mask[1:, :], ((0, 1), (0, 0)), constant_values=True)
+            left_b = quad_mask & np.pad(~quad_mask[:, :-1], ((0, 0), (1, 0)), constant_values=True)
+            right_b = quad_mask & np.pad(~quad_mask[:, 1:], ((0, 0), (0, 1)), constant_values=True)
+
+            e_top = np.column_stack([v00[top_b], v01[top_b]])
+            e_right = np.column_stack([v01[right_b], v11[right_b]])
+            e_bot = np.column_stack([v11[bot_b], v10[bot_b]])
+            e_left = np.column_stack([v10[left_b], v00[left_b]])
+            boundary_edges = np.vstack([e_top, e_right, e_bot, e_left])
+
+            face_list = [front_faces, back_faces]
+            if len(boundary_edges) > 0:
+                v0 = boundary_edges[:, 0]
+                v1 = boundary_edges[:, 1]
+                face_list.append(np.column_stack([np.full(len(v0), 3), v0, v1, v1 + offset]))
+                face_list.append(np.column_stack([np.full(len(v0), 3), v0, v1 + offset, v0 + offset]))
+
+            shell_mesh = pv.PolyData(all_pts, np.vstack(face_list))
+            shell_mesh.point_data["RGB"] = all_colors
+            shell_mesh = shell_mesh.clean()
+            try:
+                shell_mesh = shell_mesh.smooth_taubin(n_iter=10)
+            except Exception:
+                shell_mesh = shell_mesh.smooth(n_iter=10)
+
+            shells[name] = shell_mesh.compute_normals(point_normals=True, cell_normals=False, auto_orient_normals=True)
 
         return shells
 

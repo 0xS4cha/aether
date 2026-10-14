@@ -24,6 +24,10 @@ class MeshConfig:
     resolution_scale: float = 0.5
     smooth_iterations: int = 15
     double_sided: bool = True
+    threshold: float = 0.03
+    remove_star_outliers: bool = True
+    close_mesh: bool = True
+    taper_edges: bool = True
 
 @dataclass
 class VolumeConfig:

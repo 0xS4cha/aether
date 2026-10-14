@@ -40,7 +40,11 @@ class MorphologicalDeprojector:
         sample_g = map_coordinates(rgb[..., 1], sample_indices, order=1).reshape(xx.shape)
         sample_b = map_coordinates(rgb[..., 2], sample_indices, order=1).reshape(xx.shape)
 
-        density_3d = morph_density * np.power(sample_intensity, 0.8)
+        r_norm = np.sqrt(xx**2 + yy**2 + zz**2) / spatial_extent
+        boundary_taper = np.clip((1.0 - r_norm) / 0.15, 0.0, 1.0)
+        boundary_taper = 0.5 * (1.0 - np.cos(np.pi * boundary_taper))
+
+        density_3d = morph_density * np.power(sample_intensity, 0.8) * boundary_taper
 
         r_3d = np.clip(sample_r * (morph_density * 1.2), 0.0, 1.0) * 255.0
         g_3d = np.clip(sample_g * (morph_density * 1.2), 0.0, 1.0) * 255.0
@@ -128,14 +132,24 @@ class MorphologicalDeprojector:
         mesh = volume.contour(isosurfaces=[iso_value], scalars="density")
         
         if mesh.n_points == 0:
-            mesh = volume.contour(isosurfaces=[0.1], scalars="density")
+            mesh = volume.contour(isosurfaces=[0.08], scalars="density")
+
+        if mesh.n_points == 0:
+            return mesh
+
+        try:
+            mesh = mesh.smooth_taubin(n_iter=10)
+        except Exception:
+            mesh = mesh.smooth(n_iter=10)
 
         pts = mesh.points
         if len(pts) > 0:
             extent_val = spatial_extent * 100.0
             h, w = rgb.shape[:2]
-            u = np.clip((pts[:, 0] / (2.0 * extent_val) + 0.5) * (w - 1), 0.0, float(w - 1))
-            v = np.clip((-pts[:, 1] / (2.0 * extent_val) + 0.5) * (h - 1), 0.0, float(h - 1))
+            u_norm = np.clip(pts[:, 0] / (2.0 * extent_val) + 0.5, 0.0, 1.0)
+            v_norm = np.clip(-pts[:, 1] / (2.0 * extent_val) + 0.5, 0.0, 1.0)
+            u = u_norm * (w - 1)
+            v = v_norm * (h - 1)
             coords = np.array([v, u])
 
             r = map_coordinates(rgb[..., 0], coords, order=1)
@@ -143,5 +157,6 @@ class MorphologicalDeprojector:
             b = map_coordinates(rgb[..., 2], coords, order=1)
             rgb_mesh = (np.clip(np.column_stack([r, g, b]), 0.0, 1.0) * 255.0).astype(np.uint8)
             mesh.point_data["RGB"] = rgb_mesh
+            mesh.active_texture_coordinates = np.column_stack([u_norm, v_norm]).astype(np.float32)
 
-        return mesh.smooth(n_iter=15).compute_normals()
+        return mesh.compute_normals(point_normals=True, cell_normals=False, auto_orient_normals=True)

@@ -19,6 +19,10 @@ geometry:
     resolution_scale: 0.5
     smooth_iterations: 15
     double_sided: true
+    threshold: 0.03
+    remove_star_outliers: true
+    close_mesh: true
+    taper_edges: true
   volume:
     depth_layers: 48
     thickness_factor: 1.0

@@ -41,6 +41,10 @@ class NebulaPipeline:
             resolution_scale=self.config.geometry.mesh.resolution_scale,
             smooth_iterations=self.config.geometry.mesh.smooth_iterations,
             double_sided=self.config.geometry.mesh.double_sided,
+            threshold=self.config.geometry.mesh.threshold,
+            remove_star_outliers=self.config.geometry.mesh.remove_star_outliers,
+            close_mesh=self.config.geometry.mesh.close_mesh,
+            taper_edges=self.config.geometry.mesh.taper_edges,
         )
         self.volume_reconstructor = VolumeReconstructor(
             depth_layers=self.config.geometry.volume.depth_layers,
