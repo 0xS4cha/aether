@@ -20,6 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     vis_parser.add_argument("--model", choices=["hybrid", "astronomical", "midas_small", "dpt_hybrid", "dpt_large"], default=None)
     vis_parser.add_argument("--device", choices=["auto", "cuda", "mps", "cpu"], default=None)
     vis_parser.add_argument("--scale", type=float, default=None)
+    vis_parser.add_argument("--threshold", type=float, default=None, help="Threshold to segment nebula from dark background")
     vis_parser.add_argument("--config", type=str, default=None)
     vis_parser.add_argument("--spectral", action="store_true", help="Enable spectral emission line decomposition")
     vis_parser.add_argument("--spectral-mode", choices=["natural_rgb", "hubble_sho", "hoo_bicolor"], default=None)
@@ -51,6 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--inclination", type=float, default=None)
     export_parser.add_argument("--pa", type=float, default=None)
     export_parser.add_argument("--scale", type=float, default=None)
+    export_parser.add_argument("--threshold", type=float, default=None, help="Threshold to segment nebula from dark background")
     export_parser.add_argument("--config", type=str, default=None)
 
     dl_parser = subparsers.add_parser("download", help="Download dataset")
@@ -91,6 +93,9 @@ def main() -> None:
         if getattr(args, "scale", None):
             config.geometry.point_cloud.depth_scale = args.scale
             config.geometry.mesh.depth_scale = args.scale
+        if getattr(args, "threshold", None) is not None:
+            config.geometry.mesh.threshold = args.threshold
+            config.geometry.point_cloud.threshold = args.threshold
         if getattr(args, "spectral", False):
             config.spectral.enabled = True
         if getattr(args, "spectral_mode", None):
