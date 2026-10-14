@@ -8,9 +8,6 @@ Astrophysical 3D nebula reconstruction, spectral emission decomposition, and vol
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
-## Authors
-
-- [@0xS4cha](https://github.com/0xS4cha)
 
 ## Result
 
